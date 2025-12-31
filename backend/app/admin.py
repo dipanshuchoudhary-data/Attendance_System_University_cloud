@@ -1,68 +1,133 @@
-from fastapi import APIRouter
-from app.firebase_service import (
-    create_class, update_class, delete_class,
-    create_schedule, update_schedule, delete_schedule
-)
+from fastapi import APIRouter, HTTPException
+from app.firebase_service import db, delete_student_by_id
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
+# ---------------- STUDENTS ----------------
 
-@router.post("/class")
-def add_class(
-    class_id: str,
-    subject_code: str,
-    subject_name: str,
-    professor_name: str,
-    professor_id: str,
-    group: str
-):
-    create_class(class_id, {
-        "subject_code": subject_code,
-        "subject_name": subject_name,
-        "professor_name": professor_name,
-        "professor_id": professor_id,
-        "group": group
-    })
-    return {"message": "Class created"}
+@router.delete("/student/{student_id}")
+def delete_student(student_id: str):
+    deleted = delete_student_by_id(student_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return {"status": "success", "student_id": student_id}
 
+# ---------------- CLASSES ----------------
 
-@router.put("/class")
-def edit_class(class_id: str, professor_name: str):
-    update_class(class_id, {"professor_name": professor_name})
-    return {"message": "Class updated"}
+@router.get("/classes")
+def get_classes():
+    docs = db.collection("classes").stream()
+    return [{**d.to_dict(), "class_id": d.id} for d in docs]
 
+@router.post("/classes")
+def add_class(payload: dict):
+    class_id = payload.get("class_id")
+    if not class_id:
+        raise HTTPException(status_code=400, detail="class_id required")
 
-@router.delete("/class")
-def remove_class(class_id: str):
-    delete_class(class_id)
-    return {"message": "Class deleted"}
+    db.collection("classes").document(class_id).set(payload)
+    return {"status": "class added"}
 
+@router.delete("/classes/{class_id}")
+def delete_class(class_id: str):
+    ref = db.collection("classes").document(class_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Class not found")
+    ref.delete()
+    return {"status": "class deleted"}
 
-@router.post("/schedule")
-def add_schedule(
-    class_id: str,
-    day: str,
-    start_time: str,
-    end_time: str,
-    room: str
-):
-    schedule_id = create_schedule({
-        "class_id": class_id,
-        "day": day,
-        "start_time": start_time,
-        "end_time": end_time,
-        "room": room
-    })
-    return {"schedule_id": schedule_id}
+# ---------------- SCHEDULES ----------------
 
+@router.get("/schedules")
+def get_schedules():
+    docs = db.collection("schedules").stream()
+    return [{**d.to_dict(), "schedule_id": d.id} for d in docs]
 
-@router.put("/schedule")
-def edit_schedule(schedule_id: str, room: str):
-    update_schedule(schedule_id, {"room": room})
-    return {"message": "Schedule updated"}
+@router.post("/schedules")
+def add_schedule(payload: dict):
+    schedule_id = payload.get("schedule_id")
+    if not schedule_id:
+        raise HTTPException(status_code=400, detail="schedule_id required")
 
+    db.collection("schedules").document(schedule_id).set(payload)
+    return {"status": "schedule added"}
 
-@router.delete("/schedule")
-def remove_schedule(schedule_id: str):
-    delete_schedule(schedule_id)
-    return {"message": "Schedule deleted"}
+@router.delete("/schedules/{schedule_id}")
+def delete_schedule(schedule_id: str):
+    ref = db.collection("schedules").document(schedule_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    ref.delete()
+    return {"status": "schedule deleted"}
+
+from fastapi import APIRouter, HTTPException
+from app.firebase_service import db, delete_student_by_id
+
+router = APIRouter(prefix="/admin", tags=["Admin"])
+
+# ---------------- STUDENTS ----------------
+
+@router.delete("/student/{student_id}")
+def delete_student(student_id: str):
+    deleted = delete_student_by_id(student_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return {"status": "success", "student_id": student_id}
+
+# ---------------- CLASSES ----------------
+
+@router.get("/classes")
+def get_classes():
+    docs = db.collection("classes").stream()
+    return [{**d.to_dict(), "class_id": d.id} for d in docs]
+
+@router.post("/classes")
+def add_class(payload: dict):
+    class_id = payload.get("class_id")
+    if not class_id:
+        raise HTTPException(status_code=400, detail="class_id required")
+
+    db.collection("classes").document(class_id).set(payload)
+    return {"status": "class added"}
+
+@router.delete("/classes/{class_id}")
+def delete_class(class_id: str):
+    ref = db.collection("classes").document(class_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Class not found")
+    ref.delete()
+    return {"status": "class deleted"}
+
+# ---------------- SCHEDULES ----------------
+
+@router.get("/schedules")
+def get_schedules():
+    docs = db.collection("schedules").stream()
+    return [{**d.to_dict(), "schedule_id": d.id} for d in docs]
+
+@router.post("/schedules")
+def add_schedule(payload: dict):
+    schedule_id = payload.get("schedule_id")
+    if not schedule_id:
+        raise HTTPException(status_code=400, detail="schedule_id required")
+
+    db.collection("schedules").document(schedule_id).set(payload)
+    return {"status": "schedule added"}
+
+@router.delete("/schedules/{schedule_id}")
+def delete_schedule(schedule_id: str):
+    ref = db.collection("schedules").document(schedule_id)
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    ref.delete()
+    return {"status": "schedule deleted"}
+
+@router.put("/schedules/{schedule_id}")
+def edit_schedule(schedule_id: str, payload: dict):
+    ref = db.collection("schedules").document(schedule_id)
+
+    if not ref.get().exists:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    ref.update(payload)
+    return {"status": "schedule updated", "schedule_id": schedule_id}

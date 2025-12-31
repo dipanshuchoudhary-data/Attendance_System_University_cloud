@@ -1,25 +1,41 @@
-import cv2
-from face_engine import extract_face_embedding
-from app.firebase_service import save_student
+from fastapi import APIRouter, HTTPException
+from face_engine import extract_face_embedding, cosine_similarity
+from firebase_service import save_student, get_all_students
 
+router = APIRouter()
+SIMILARITY_THRESHOLD = 0.85
 
-def enroll_student(student_id, name):
-    cap = cv2.VideoCapture(0)
-    print("Look at camera. Press 's' to save face.")
+@router.post("/student/enroll")
+def enroll_student(payload: dict):
+    student_id = payload["student_id"]
+    name = payload["name"]
+    course = payload["course"]
+    image_base64 = payload["image_base64"]
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+    # 1. Extract face embedding from image
+    embeddings = extract_face_embedding(image_base64)
+    if not embeddings:
+        raise HTTPException(status_code=400, detail="No face detected")
 
-        cv2.imshow("Student Enrollment", frame)
+    new_embedding = embeddings[0]
 
-        if cv2.waitKey(1) & 0xFF == ord('s'):
-            embeddings = extract_face_embedding(frame)
-            if embeddings:
-                save_student(student_id, name, embeddings[0])
-                print("Enrollment successful")
-                break
+    # 2. Enforce ONE FACE = ONE ID
+    existing_students = get_all_students()
 
-    cap.release()
-    cv2.destroyAllWindows()
+    for student in existing_students:
+        existing_embedding = student.get("embedding")
+        if not existing_embedding:
+            continue
+
+        similarity = cosine_similarity(existing_embedding, new_embedding)
+
+        if similarity >= SIMILARITY_THRESHOLD:
+            raise HTTPException(
+                status_code=409,
+                detail="This face is already enrolled with another enrollment ID."
+            )
+
+    # 3. Save student
+    save_student(student_id, name, course, new_embedding)
+
+    return {"status": "success"}

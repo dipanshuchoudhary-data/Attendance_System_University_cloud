@@ -1,22 +1,29 @@
 import { useEffect, useState } from "react";
 import StatCard from "../components/StatCard";
-import { getStudents, getClasses, getAttendance } from "../api/api";
+import { api } from "../api/api";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
     students: 0,
-    classes: 0,
-    attendance: 0
+    attendance: 0,
   });
 
   useEffect(() => {
-    Promise.all([getStudents(), getAttendance()]).then(([s, a]) => {
-      setStats({
-        students: s.length,
-        classes: 0,
-        attendance: a.length
-      });
-    });
+    async function load() {
+      try {
+        const students = await api.getStudents();
+        const attendance = await api.getAttendance();
+
+        setStats({
+          students: students?.length || 0,
+          attendance: attendance?.length || 0,
+        });
+      } catch (err) {
+        console.error("Dashboard load error:", err);
+      }
+    }
+
+    load();
   }, []);
 
   return (

@@ -45,3 +45,19 @@ def end_session(session_id):
     db.collection("sessions").document(session_id).update({
         "end_time": firestore.SERVER_TIMESTAMP
     })
+
+
+def get_all_students():
+    docs = db.collection("students").stream()
+    return [doc.to_dict() for doc in docs]
+
+def delete_student_by_id(student_id: str) -> bool:
+    doc_ref = db.collection("students").document(student_id)
+    doc = doc_ref.get()
+
+    if not doc.exists:
+        return False
+
+    doc_ref.delete()
+    return True
+

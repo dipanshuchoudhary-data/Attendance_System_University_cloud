@@ -23,3 +23,10 @@ def extract_face_embedding(frame):
 def cosine_similarity(a, b):
     a, b = np.array(a), np.array(b)
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+def cosine_similarity(a: list, b: list) -> float:
+    a = np.array(a)
+    b = np.array(b)
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+

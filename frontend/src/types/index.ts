@@ -2,9 +2,10 @@
 
 /* ---------- STUDENT ---------- */
 export interface Student {
-  student_id: string;       
-  name: string;             
-  embedding?: number[];     
+  student_id: string;   // Enrollment number
+  name: string;         
+  course: string;       
+  embedding?: number[]; 
 }
 
 /* ---------- CLASS / SUBJECT ---------- */

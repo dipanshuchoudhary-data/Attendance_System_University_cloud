@@ -1,13 +1,31 @@
 import { useEffect, useState } from "react";
-import { Attendance } from "../types";
-import { getAttendance } from "../api/api";
+import { AttendanceRecord } from "../types";
+import { api } from "../api/api";
 
-export default function AttendancePage() {
-  const [records, setRecords] = useState<Attendance[]>([]);
+export default function Attendance() {
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getAttendance().then(setRecords);
+    async function load() {
+      try {
+        const data = await api.getAttendance();
+        if (Array.isArray(data)) {
+          setRecords(data);
+        } else {
+          setRecords([]);
+        }
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
   }, []);
+
+  if (loading) return <p>Loading attendance...</p>;
 
   return (
     <div>
@@ -23,14 +41,20 @@ export default function AttendancePage() {
           </tr>
         </thead>
         <tbody>
-          {records.map((r, i) => (
-            <tr key={i}>
-              <td>{r.student_id}</td>
-              <td>{r.class_id}</td>
-              <td>{r.presence_duration}s</td>
-              <td>{r.status}</td>
+          {records.length === 0 ? (
+            <tr>
+              <td colSpan={4}>No attendance records</td>
             </tr>
-          ))}
+          ) : (
+            records.map((r, i) => (
+              <tr key={i}>
+                <td>{r.student_id}</td>
+                <td>{r.class_id}</td>
+                <td>{r.duration}</td>
+                <td>{r.status}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
