@@ -1,162 +1,198 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/api";
 
+/* ---------- TYPES ---------- */
 interface ClassItem {
   class_id: string;
+  subject_code: string;
   subject_name: string;
-  subject_code?: string;
-  professor_name?: string;
-  group?: string;
+  professor_name: string;
+  professor_id: string;
+  group: string;
 }
+
+const emptyForm: ClassItem = {
+  class_id: "",
+  subject_code: "",
+  subject_name: "",
+  professor_name: "",
+  professor_id: "",
+  group: "",
+};
 
 export default function Classes() {
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [newClass, setNewClass] = useState({
-    class_id: "",
-    subject_name: "",
-    professor_name: "",
-    group: ""
-  });
+  const [form, setForm] = useState<ClassItem>(emptyForm);
+  const [editing, setEditing] = useState(false);
 
-  // Load classes
   useEffect(() => {
     loadClasses();
   }, []);
 
   const loadClasses = async () => {
+    setLoading(true);
+    setError("");
+
     try {
       const data = await api.getClasses();
       setClasses(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
+      setError("Failed to load classes");
       setClasses([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Add class
-  const addClass = async () => {
-    if (!newClass.class_id || !newClass.subject_name) {
-      alert("Class ID and Subject Name are required");
-      return;
+  /* ---------- FORM HANDLERS ---------- */
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditing(false);
+  };
+
+  const submitForm = async () => {
+    try {
+      if (!form.class_id) {
+        alert("Class ID is required");
+        return;
+      }
+
+      if (editing) {
+        await api.editClass(form.class_id, form);
+      } else {
+        await api.addClass(form);
+      }
+
+      resetForm();
+      loadClasses();
+    } catch (err) {
+      alert("Operation failed");
     }
-
-    await fetch("http://127.0.0.1:8000/admin/classes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newClass)
-    });
-
-    setNewClass({
-      class_id: "",
-      subject_name: "",
-      professor_name: "",
-      group: ""
-    });
-
-    loadClasses();
   };
 
-  // Edit class
-  const editClass = async (class_id: string) => {
-    const subject_name = prompt("Enter new subject name");
-    if (!subject_name) return;
-
-    await fetch(`http://127.0.0.1:8000/admin/classes/${class_id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject_name })
-    });
-
-    setClasses(prev =>
-      prev.map(c =>
-        c.class_id === class_id ? { ...c, subject_name } : c
-      )
-    );
+  const startEdit = (cls: ClassItem) => {
+    setForm(cls);
+    setEditing(true);
   };
 
-  // Delete class
   const deleteClass = async (class_id: string) => {
     if (!window.confirm("Delete this class?")) return;
 
-    await fetch(`http://127.0.0.1:8000/admin/classes/${class_id}`, {
-      method: "DELETE"
-    });
-
-    setClasses(prev => prev.filter(c => c.class_id !== class_id));
+    try {
+      await api.deleteClass(class_id);
+      loadClasses();
+    } catch {
+      alert("Delete failed");
+    }
   };
 
-  if (loading) return <p>Loading classes...</p>;
+  if (loading) return <h3>Loading classes...</h3>;
 
   return (
     <div>
       <h1>Classes</h1>
 
-      <h3>Add Class</h3>
-      <input
-        placeholder="Class ID"
-        value={newClass.class_id}
-        onChange={e => setNewClass({ ...newClass, class_id: e.target.value })}
-      />
-      <input
-        placeholder="Subject Name"
-        value={newClass.subject_name}
-        onChange={e => setNewClass({ ...newClass, subject_name: e.target.value })}
-      />
-      <input
-        placeholder="Professor Name"
-        value={newClass.professor_name}
-        onChange={e =>
-          setNewClass({ ...newClass, professor_name: e.target.value })
-        }
-      />
-      <input
-        placeholder="Group"
-        value={newClass.group}
-        onChange={e => setNewClass({ ...newClass, group: e.target.value })}
-      />
-      <button onClick={addClass}>Add Class</button>
+      {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Class ID</th>
-            <th>Subject</th>
-            <th>Professor</th>
-            <th>Group</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+      {/* ---------- ADD / EDIT FORM ---------- */}
+      <div className="card" style={{ marginBottom: "20px" }}>
+        <h3>{editing ? "Edit Class" : "Add Class"}</h3>
 
-        <tbody>
-          {classes.length === 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "10px" }}>
+          <input
+            name="class_id"
+            placeholder="Class ID"
+            value={form.class_id}
+            onChange={handleChange}
+            disabled={editing}
+          />
+          <input
+            name="subject_code"
+            placeholder="Subject Code"
+            value={form.subject_code}
+            onChange={handleChange}
+          />
+          <input
+            name="subject_name"
+            placeholder="Subject Name"
+            value={form.subject_name}
+            onChange={handleChange}
+          />
+          <input
+            name="professor_name"
+            placeholder="Professor Name"
+            value={form.professor_name}
+            onChange={handleChange}
+          />
+          <input
+            name="professor_id"
+            placeholder="Professor ID"
+            value={form.professor_id}
+            onChange={handleChange}
+          />
+          <input
+            name="group"
+            placeholder="Group (e.g. BCA(Eve))"
+            value={form.group}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div style={{ marginTop: "10px" }}>
+          <button onClick={submitForm}>
+            {editing ? "Update Class" : "Add Class"}
+          </button>
+          {editing && (
+            <button onClick={resetForm} style={{ marginLeft: "10px" }}>
+              Cancel
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ---------- TABLE ---------- */}
+      {classes.length === 0 ? (
+        <p>No classes found</p>
+      ) : (
+        <table className="data-table">
+          <thead>
             <tr>
-              <td colSpan={5}>No classes found</td>
+              <th>Class ID</th>
+              <th>Subject</th>
+              <th>Professor</th>
+              <th>Group</th>
+              <th>Actions</th>
             </tr>
-          ) : (
-            classes.map(c => (
-              <tr key={c.class_id}>
-                <td>{c.class_id}</td>
-                <td>{c.subject_name}</td>
-                <td>{c.professor_name}</td>
-                <td>{c.group}</td>
+          </thead>
+          <tbody>
+            {classes.map((cls) => (
+              <tr key={cls.class_id}>
+                <td>{cls.class_id}</td>
+                <td>{cls.subject_code} – {cls.subject_name}</td>
+                <td>{cls.professor_name} ({cls.professor_id})</td>
+                <td>{cls.group}</td>
                 <td>
-                  <button onClick={() => editClass(c.class_id)}>Edit</button>
+                  <button onClick={() => startEdit(cls)}>Edit</button>
                   <button
-                    style={{ color: "red" }}
-                    onClick={() => deleteClass(c.class_id)}
+                    onClick={() => deleteClass(cls.class_id)}
+                    style={{ marginLeft: "8px" }}
                   >
                     Delete
                   </button>
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

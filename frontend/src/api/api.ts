@@ -1,123 +1,163 @@
+/* =========================================================
+   API CONFIG
+========================================================= */
+
 const BASE_URL = "http://127.0.0.1:8000";
 
-/**
- * Admin-authenticated headers
- * Token is stored in localStorage after admin login
- */
-const adminHeaders = () => ({
-  "Content-Type": "application/json",
-  "X-Admin-Token": localStorage.getItem("admin_token") || ""
-});
+/* =========================================================
+   HEADERS
+========================================================= */
+
+function adminHeaders(): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    "x-admin-token":
+      localStorage.getItem("admin_token") ?? "JUDGES_ONLY_SECRET",
+  };
+}
+
+/* =========================================================
+   SAFE FETCH WRAPPER
+========================================================= */
+
+async function safeFetch<T = any>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(url, options);
+
+  if (!response.ok) {
+    let detail = "Unknown error";
+    try {
+      const data = await response.json();
+      detail = data?.detail ?? JSON.stringify(data);
+    } catch {
+      detail = await response.text();
+    }
+    throw new Error(`API ${response.status}: ${detail}`);
+  }
+
+  return response.json();
+}
+
+/* =========================================================
+   API EXPORT
+========================================================= */
 
 export const api = {
-  /* ---------------- STUDENTS ---------------- */
+  /* ================= STUDENTS ================= */
 
   getStudents: async () => {
-    const res = await fetch(`${BASE_URL}/students`, {
-      headers: adminHeaders()
-    });
-    return res.json();
+    return safeFetch(`${BASE_URL}/students`);
   },
 
   deleteStudent: async (student_id: string) => {
-    const res = await fetch(
-      `${BASE_URL}/admin/student/${student_id}`,
-      {
-        method: "DELETE",
-        headers: adminHeaders()
-      }
-    );
-    return res.json();
+    return safeFetch(`${BASE_URL}/admin/student/${student_id}`, {
+      method: "DELETE",
+      headers: adminHeaders(),
+    });
   },
 
-  /* ---------------- CLASSES ---------------- */
+  /* ================= CLASSES ================= */
 
   getClasses: async () => {
-    const res = await fetch(`${BASE_URL}/admin/classes`, {
-      headers: adminHeaders()
+    return safeFetch(`${BASE_URL}/admin/classes`, {
+      headers: adminHeaders(),
     });
-    return res.json();
   },
 
   addClass: async (payload: any) => {
-    const res = await fetch(`${BASE_URL}/admin/classes`, {
+    return safeFetch(`${BASE_URL}/admin/classes`, {
       method: "POST",
       headers: adminHeaders(),
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-    return res.json();
   },
 
   editClass: async (class_id: string, payload: any) => {
-    const res = await fetch(
-      `${BASE_URL}/admin/classes/${class_id}`,
-      {
-        method: "PUT",
-        headers: adminHeaders(),
-        body: JSON.stringify(payload)
-      }
-    );
-    return res.json();
+    return safeFetch(`${BASE_URL}/admin/classes/${class_id}`, {
+      method: "PUT",
+      headers: adminHeaders(),
+      body: JSON.stringify(payload),
+    });
   },
 
   deleteClass: async (class_id: string) => {
-    const res = await fetch(
-      `${BASE_URL}/admin/classes/${class_id}`,
-      {
-        method: "DELETE",
-        headers: adminHeaders()
-      }
-    );
-    return res.json();
+    return safeFetch(`${BASE_URL}/admin/classes/${class_id}`, {
+      method: "DELETE",
+      headers: adminHeaders(),
+    });
   },
 
-  /* ---------------- SCHEDULES ---------------- */
+  /* ================= SCHEDULES ================= */
 
   getSchedules: async () => {
-    const res = await fetch(`${BASE_URL}/admin/schedules`, {
-      headers: adminHeaders()
+    return safeFetch(`${BASE_URL}/admin/schedules`, {
+      headers: adminHeaders(),
     });
-    return res.json();
   },
 
   addSchedule: async (payload: any) => {
-    const res = await fetch(`${BASE_URL}/admin/schedules`, {
+    return safeFetch(`${BASE_URL}/admin/schedules`, {
       method: "POST",
       headers: adminHeaders(),
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-    return res.json();
   },
 
   editSchedule: async (schedule_id: string, payload: any) => {
-    const res = await fetch(
-      `${BASE_URL}/admin/schedules/${schedule_id}`,
-      {
-        method: "PUT",
-        headers: adminHeaders(),
-        body: JSON.stringify(payload)
-      }
-    );
-    return res.json();
+    return safeFetch(`${BASE_URL}/admin/schedules/${schedule_id}`, {
+      method: "PUT",
+      headers: adminHeaders(),
+      body: JSON.stringify(payload),
+    });
   },
 
   deleteSchedule: async (schedule_id: string) => {
-    const res = await fetch(
-      `${BASE_URL}/admin/schedules/${schedule_id}`,
-      {
-        method: "DELETE",
-        headers: adminHeaders()
-      }
-    );
-    return res.json();
+    return safeFetch(`${BASE_URL}/admin/schedules/${schedule_id}`, {
+      method: "DELETE",
+      headers: adminHeaders(),
+    });
   },
 
-  /* ---------------- ATTENDANCE ---------------- */
+  /* ================= ATTENDANCE ================= */
 
   getAttendance: async () => {
-    const res = await fetch(`${BASE_URL}/attendance`, {
-      headers: adminHeaders()
+    return safeFetch(`${BASE_URL}/attendance`);
+  },
+
+  /* ================= CAMERA CONTROL ================= */
+
+  startCamera: async (class_id: string, threshold_seconds: number) => {
+    return safeFetch(
+      `${BASE_URL}/admin/camera/start?class_id=${encodeURIComponent(
+        class_id
+      )}&threshold_seconds=${threshold_seconds}`,
+      {
+        method: "POST",
+        headers: adminHeaders(),
+      }
+    );
+  },
+
+  stopCamera: async (class_id: string) => {
+    return safeFetch(
+      `${BASE_URL}/admin/camera/stop?class_id=${encodeURIComponent(class_id)}`,
+      {
+        method: "POST",
+        headers: adminHeaders(),
+      }
+    );
+  },
+
+  sendFrame: async (class_id: string, image_base64: string) => {
+    return safeFetch(`${BASE_URL}/admin/camera/frame`, {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify({
+        class_id,
+        image_base64,
+      }),
     });
-    return res.json();
-  }
+  },
 };

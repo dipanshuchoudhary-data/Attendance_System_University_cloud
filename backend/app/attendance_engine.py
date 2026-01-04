@@ -1,29 +1,113 @@
-import time
-import uuid
-from app.firebase_service import get_all_students, mark_attendance
-from app.face_engine import cosine_similarity
-from config import ATTENDANCE_THRESHOLD_SECONDS, EMBEDDING_MATCH_THRESHOLD
+from datetime import datetime
+from typing import List, Dict, Set
 
-presence = {}
-attendance_marked = set()
-session_id = str(uuid.uuid4())
+from app.firebase_service import (
+    find_student_by_embedding,
+    get_students_by_class,
+    save_attendance_record,
+)
+
+# ---------------- IN-MEMORY STATE ----------------
+
+_marked_students: Dict[str, Set[str]] = {}
 
 
-def process_embeddings(detected_embeddings):
-    students = get_all_students()
-    current_time = time.time()
+# ---------------- CORE MARKING ----------------
 
-    for emb in detected_embeddings:
-        for student_id, data in students.items():
-            similarity = cosine_similarity(emb, data["embedding"])
+def start_class_session(class_id: str):
+    """
+    Initialize a fresh attendance session for a class.
+    Clears previous in-memory attendance state.
+    """
 
-            if similarity > EMBEDDING_MATCH_THRESHOLD:
-                if student_id not in presence:
-                    presence[student_id] = current_time
+    global _marked_students
 
-                duration = current_time - presence[student_id]
+    if class_id not in _marked_students:
+        _marked_students[class_id] = set()
+    else:
+        _marked_students[class_id].clear()
 
-                if duration >= ATTENDANCE_THRESHOLD_SECONDS:
-                    if student_id not in attendance_marked:
-                        mark_attendance(student_id, session_id, int(duration))
-                        attendance_marked.add(student_id)
+    return {
+        "status": "session_started",
+        "class_id": class_id
+    }
+
+def mark_attendance(class_id: str, face_embedding: List[float]):
+    student_id = find_student_by_embedding(face_embedding)
+
+    if not student_id:
+        return {"status": "no_match"}
+
+    if class_id not in _marked_students:
+        _marked_students[class_id] = set()
+
+    if student_id in _marked_students[class_id]:
+        return {
+            "status": "already_marked",
+            "student_id": student_id
+        }
+
+    _marked_students[class_id].add(student_id)
+
+    return {
+        "status": "marked",
+        "student_id": student_id
+    }
+
+
+# ---------------- FINALIZE ATTENDANCE ----------------
+
+def finalize_attendance(class_id: str):
+    """
+    Writes attendance to Firestore using the EXISTING
+    save_attendance_record(class_id, student_id, timestamp)
+    """
+
+    students = get_students_by_class(class_id)
+    all_student_ids = [s["student_id"] for s in students]
+
+    present = list(_marked_students.get(class_id, set()))
+    absent = [sid for sid in all_student_ids if sid not in present]
+
+    timestamp = datetime.utcnow().isoformat()
+
+    # ✅ Save PRESENT students
+    for student_id in present:
+        save_attendance_record(
+            class_id=class_id,
+            student_id=student_id,
+            timestamp=timestamp
+        )
+
+    # ✅ Save ABSENT students (important for dashboard count)
+    for student_id in absent:
+        save_attendance_record(
+            class_id=class_id,
+            student_id=student_id,
+            timestamp=timestamp
+        )
+
+    return {
+        "status": "saved",
+        "class_id": class_id,
+        "present_count": len(present),
+        "absent_count": len(absent)
+    }
+
+
+# ---------------- SESSION RESET ----------------
+
+def reset_class_session(class_id: str):
+    _marked_students.pop(class_id, None)
+
+
+# ---------------- READ ATTENDANCE ----------------
+
+def get_attendance():
+    from app.firebase_service import get_all_attendance_records
+    return get_all_attendance_records()
+
+
+def get_all_attendance():
+    from app.firebase_service import get_all_attendance_records
+    return get_all_attendance_records()

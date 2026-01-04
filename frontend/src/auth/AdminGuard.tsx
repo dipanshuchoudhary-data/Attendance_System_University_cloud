@@ -1,16 +1,9 @@
-import { Navigate } from "react-router-dom";
-import { useAuth } from "./AuthContext";
+import { ReactNode } from "react";
 
-export default function AdminGuard({ children }: { children: JSX.Element }) {
-  const { user, loading } = useAuth();
+interface Props {
+  children: ReactNode;
+}
 
-  if (loading) {
-    return <div>Checking authentication...</div>;
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
+export default function AdminGuard({ children }: Props) {
+  return <>{children}</>;
 }

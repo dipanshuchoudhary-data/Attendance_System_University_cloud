@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/api";
 
+/* ---------- TYPES ---------- */
 interface ScheduleItem {
   schedule_id: string;
   class_id: string;
@@ -10,156 +11,205 @@ interface ScheduleItem {
   room: string;
 }
 
+interface ClassItem {
+  class_id: string;
+}
+
+/* ---------- INITIAL STATE ---------- */
+const emptyForm: ScheduleItem = {
+  schedule_id: "",
+  class_id: "",
+  day: "",
+  start_time: "",
+  end_time: "",
+  room: "",
+};
+
 export default function SchedulePage() {
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [newSchedule, setNewSchedule] = useState({
-    schedule_id: "",
-    class_id: "",
-    day: "",
-    start_time: "",
-    end_time: "",
-    room: ""
-  });
+  const [form, setForm] = useState<ScheduleItem>(emptyForm);
+  const [editing, setEditing] = useState(false);
 
-  // Load schedules
   useEffect(() => {
-    loadSchedules();
+    loadAll();
   }, []);
 
-  const loadSchedules = async () => {
+  /* ---------- LOAD DATA ---------- */
+  const loadAll = async () => {
+    setLoading(true);
+    setError("");
+
     try {
-      const data = await api.getSchedules();
-      setSchedules(Array.isArray(data) ? data : []);
+      const [scheduleData, classData] = await Promise.all([
+        api.getSchedules(),
+        api.getClasses(),
+      ]);
+
+      setSchedules(Array.isArray(scheduleData) ? scheduleData : []);
+      setClasses(Array.isArray(classData) ? classData : []);
     } catch (err) {
       console.error(err);
+      setError("Failed to load schedules");
       setSchedules([]);
+      setClasses([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Add schedule
-  const addSchedule = async () => {
-    if (!newSchedule.schedule_id || !newSchedule.class_id) {
-      alert("Schedule ID and Class ID are required");
+  /* ---------- FORM HANDLERS ---------- */
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditing(false);
+  };
+
+  const submitForm = async () => {
+    if (!form.schedule_id || !form.class_id) {
+      alert("Schedule ID and Class are required");
       return;
     }
 
-    await fetch("http://127.0.0.1:8000/admin/schedules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newSchedule)
-    });
+    try {
+      if (editing) {
+        await api.editSchedule(form.schedule_id, form);
+      } else {
+        await api.addSchedule(form);
+      }
 
-    setNewSchedule({
-      schedule_id: "",
-      class_id: "",
-      day: "",
-      start_time: "",
-      end_time: "",
-      room: ""
-    });
-
-    loadSchedules();
+      resetForm();
+      loadAll();
+    } catch (err) {
+      alert("Operation failed");
+    }
   };
 
-  // Edit schedule
-  const editSchedule = async (schedule_id: string) => {
-    const room = prompt("Enter new room");
-    if (!room) return;
-
-    await fetch(`http://127.0.0.1:8000/admin/schedules/${schedule_id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ room })
-    });
-
-    setSchedules(prev =>
-      prev.map(s =>
-        s.schedule_id === schedule_id ? { ...s, room } : s
-      )
-    );
+  const startEdit = (item: ScheduleItem) => {
+    setForm(item);
+    setEditing(true);
   };
 
-  // Delete schedule
   const deleteSchedule = async (schedule_id: string) => {
     if (!window.confirm("Delete this schedule?")) return;
 
-    await fetch(`http://127.0.0.1:8000/admin/schedules/${schedule_id}`, {
-      method: "DELETE"
-    });
-
-    setSchedules(prev => prev.filter(s => s.schedule_id !== schedule_id));
+    try {
+      await api.deleteSchedule(schedule_id);
+      loadAll();
+    } catch {
+      alert("Delete failed");
+    }
   };
 
-  if (loading) return <p>Loading schedules...</p>;
+  if (loading) return <h3>Loading schedules...</h3>;
 
   return (
     <div>
       <h1>Schedule</h1>
 
-      <h3>Add Schedule</h3>
-      <input
-        placeholder="Schedule ID"
-        value={newSchedule.schedule_id}
-        onChange={e =>
-          setNewSchedule({ ...newSchedule, schedule_id: e.target.value })
-        }
-      />
-      <input
-        placeholder="Class ID"
-        value={newSchedule.class_id}
-        onChange={e =>
-          setNewSchedule({ ...newSchedule, class_id: e.target.value })
-        }
-      />
-      <input
-        placeholder="Day"
-        value={newSchedule.day}
-        onChange={e => setNewSchedule({ ...newSchedule, day: e.target.value })}
-      />
-      <input
-        placeholder="Start Time"
-        value={newSchedule.start_time}
-        onChange={e =>
-          setNewSchedule({ ...newSchedule, start_time: e.target.value })
-        }
-      />
-      <input
-        placeholder="End Time"
-        value={newSchedule.end_time}
-        onChange={e =>
-          setNewSchedule({ ...newSchedule, end_time: e.target.value })
-        }
-      />
-      <input
-        placeholder="Room"
-        value={newSchedule.room}
-        onChange={e => setNewSchedule({ ...newSchedule, room: e.target.value })}
-      />
-      <button onClick={addSchedule}>Add Schedule</button>
+      {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>Class</th>
-            <th>Day</th>
-            <th>Time</th>
-            <th>Room</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+      {/* ---------- ADD / EDIT FORM ---------- */}
+      <div className="card" style={{ marginBottom: "20px" }}>
+        <h3>{editing ? "Edit Schedule" : "Add Schedule"}</h3>
 
-        <tbody>
-          {schedules.length === 0 ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: "10px",
+          }}
+        >
+          <input
+            name="schedule_id"
+            placeholder="Schedule ID"
+            value={form.schedule_id}
+            onChange={handleChange}
+            disabled={editing}
+          />
+
+          <select
+            name="class_id"
+            value={form.class_id}
+            onChange={handleChange}
+          >
+            <option value="">Select Class</option>
+            {classes.map((c) => (
+              <option key={c.class_id} value={c.class_id}>
+                {c.class_id}
+              </option>
+            ))}
+          </select>
+
+          <input
+            name="day"
+            placeholder="Day (e.g. Monday)"
+            value={form.day}
+            onChange={handleChange}
+          />
+
+          <input
+            name="room"
+            placeholder="Room"
+            value={form.room}
+            onChange={handleChange}
+          />
+
+          <input
+            type="time"
+            name="start_time"
+            value={form.start_time}
+            onChange={handleChange}
+          />
+
+          <input
+            type="time"
+            name="end_time"
+            value={form.end_time}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div style={{ marginTop: "10px" }}>
+          <button onClick={submitForm}>
+            {editing ? "Update Schedule" : "Add Schedule"}
+          </button>
+
+          {editing && (
+            <button onClick={resetForm} style={{ marginLeft: "10px" }}>
+              Cancel
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ---------- TABLE ---------- */}
+      {schedules.length === 0 ? (
+        <p>No schedules found</p>
+      ) : (
+        <table className="data-table">
+          <thead>
             <tr>
-              <td colSpan={5}>No schedules found</td>
+              <th>Schedule ID</th>
+              <th>Class</th>
+              <th>Day</th>
+              <th>Time</th>
+              <th>Room</th>
+              <th>Actions</th>
             </tr>
-          ) : (
-            schedules.map(s => (
+          </thead>
+          <tbody>
+            {schedules.map((s) => (
               <tr key={s.schedule_id}>
+                <td>{s.schedule_id}</td>
                 <td>{s.class_id}</td>
                 <td>{s.day}</td>
                 <td>
@@ -167,21 +217,19 @@ export default function SchedulePage() {
                 </td>
                 <td>{s.room}</td>
                 <td>
-                  <button onClick={() => editSchedule(s.schedule_id)}>
-                    Edit
-                  </button>
+                  <button onClick={() => startEdit(s)}>Edit</button>
                   <button
-                    style={{ color: "red" }}
                     onClick={() => deleteSchedule(s.schedule_id)}
+                    style={{ marginLeft: "8px" }}
                   >
                     Delete
                   </button>
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

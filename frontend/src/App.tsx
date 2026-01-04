@@ -1,4 +1,7 @@
-import { Routes, Route, Outlet } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
+
+import { AuthProvider } from "./auth/AuthContext";
+import AdminGuard from "./auth/AdminGuard";
 
 import Sidebar from "./components/Sidebar";
 import Navbar from "./components/Navbar";
@@ -9,39 +12,74 @@ import Classes from "./pages/Classes";
 import Schedule from "./pages/Schedule";
 import Attendance from "./pages/Attendance";
 import StudentEnroll from "./pages/StudentEnroll.tsx";
-import Login from "./pages/adminLogin";
-
-import AdminGuard from "./auth/AdminGuard";
-
-function AdminLayout() {
-  return (
-    <AdminGuard>
-      <div className="layout">
-        <Sidebar />
-        <div className="content">
-          <Navbar />
-          <Outlet /> {/* 🔴 THIS WAS MISSING */}
-        </div>
-      </div>
-    </AdminGuard>
-  );
-}
+import TakeAttendance from "./pages/Takeattendance";
 
 export default function App() {
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/student-enroll" element={<StudentEnroll />} />
+    <AuthProvider>
+      <div className="layout">
+        <Sidebar />
 
-      {/* Admin routes */}
-      <Route path="/" element={<AdminLayout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="students" element={<Students />} />
-        <Route path="classes" element={<Classes />} />
-        <Route path="schedule" element={<Schedule />} />
-        <Route path="attendance" element={<Attendance />} />
-      </Route>
-    </Routes>
+        <div className="content">
+          <Navbar />
+
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <AdminGuard>
+                  <Dashboard />
+                </AdminGuard>
+              }
+            />
+
+            <Route
+              path="/students"
+              element={
+                <AdminGuard>
+                  <Students />
+                </AdminGuard>
+              }
+            />
+
+            <Route
+              path="/classes"
+              element={
+                <AdminGuard>
+                  <Classes />
+                </AdminGuard>
+              }
+            />
+
+            <Route
+              path="/schedule"
+              element={
+                <AdminGuard>
+                  <Schedule />
+                </AdminGuard>
+              }
+            />
+
+            <Route
+              path="/attendance"
+              element={
+                <AdminGuard>
+                  <Attendance />
+                </AdminGuard>
+              }
+            />
+            <Route
+              path="/take-attendance"
+              element={
+                <AdminGuard>
+                  <TakeAttendance />
+                </AdminGuard>
+              }
+            />
+            <Route path="/student-enroll" element={<StudentEnroll />} />
+          </Routes>
+        </div>
+      </div>
+    </AuthProvider>
   );
 }
