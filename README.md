@@ -1,220 +1,196 @@
-University Smart Attendance System
+## University Smart Attendance System
 
-Face-based Classroom Attendance Platform
+**Face-Based Classroom Attendance Platform**
 
-A production-ready attendance system that verifies continuous physical presence using computer vision and records attendance securely in Firebase. Designed for live demos, evaluations, and real-world deployment.
+A production-grade attendance solution that validates **continuous physical presence** using computer vision and securely records results in Firebase. Built for live demonstrations, formal evaluations, and real-world deployment.
 
-Key Capabilities
+---
 
-Face-based attendance (no proxy)
+## Overview
 
-Time-threshold verification (student must stay in frame for N seconds)
+* Face-based attendance with strong anti-proxy controls
+* Continuous presence verification using a configurable time threshold
+* Single-identity enforcement across the entire system
+* Admin-controlled attendance sessions with real-time tracking
+* Cloud-ready architecture with no dependency on a fixed server camera
 
-Single identity enforcement
+---
 
-Same face cannot enroll with different IDs, names, or courses
+## Key Capabilities
 
-Admin-controlled attendance sessions
+* Face-based attendance (proxy-resistant)
+* Time-threshold verification (student must remain in frame for *N* seconds)
+* One face mapped to one identity for life
+* Prevention of duplicate enrollment across IDs, names, or courses
+* Real-time attendance marking during live sessions
+* Secure admin access and session control
+* Scalable, cloud-native design
 
-Real-time attendance marking
+---
 
-Secure admin access
+## Technology Stack
 
-Cloud-ready architecture (no server camera dependency)
+### Frontend
 
-Technology Stack
-Frontend
+* React with TypeScript
+* Browser Camera API
+* Deployed as a static web application
 
-React + TypeScript
+### Backend
 
-Browser Camera API
+* FastAPI
+* Firebase Admin SDK (Firestore)
+* MediaPipe for face detection
+* REST-based ingestion of camera frames
 
-Deployed as static web app
+### Database
 
-Backend
+* Firebase Firestore
 
-FastAPI
+---
 
-Firebase Admin SDK (Firestore)
+## User Roles
 
-MediaPipe (face detection)
+### Student
 
-REST-based camera frame ingestion
+* One-time enrollment using face and academic details
+* Uses personal phone or laptop camera for attendance
+* Cannot re-enroll with altered identity information
 
-Database
+### Admin / Judge
 
-Firebase Firestore
+* Manages classes and schedules
+* Starts and stops attendance sessions
+* Reviews finalized attendance records
 
-Roles
-Student
+---
 
-Enrolls once using face + enrollment details
+## Core Workflow (High Level)
 
-Uses personal phone or laptop camera
+### Student Enrollment
 
-Admin / Judge
+* Student submits enrollment ID, name, course, and facial data
+* System enforces strict validation and uniqueness rules
 
-Manages classes & schedules
+### Session Initialization
 
-Starts and stops attendance sessions
+* Admin selects class and configures time threshold
+* Attendance session is started
 
-Reviews attendance records
+### Live Attendance Tracking
 
-Core Flow (High Level)
+* Browser streams frames to backend
+* Backend tracks continuous face presence
+* Attendance is marked only after the threshold is met
 
-Student Enrollment
+### Session Finalization
 
-Student submits ID, name, course, and face
+* Admin stops the session
+* Attendance is finalized and persisted
+* Absent students are auto-calculated
 
-System blocks:
+### Review & Audit
 
-Duplicate face
+* Attendance records available via dashboard
+* Filterable by class and date
+* Data persists across refreshes
 
-Invalid enrollment ID
+---
 
-Re-enrollment across courses
+## Enrollment Rules (Strict Enforcement)
 
-Admin Starts Class
+* Enrollment ID must:
 
-Admin selects class
+  * Start with `A100`
+  * Be exactly 10 or 11 characters
+* One face equals one identity permanently
+* Re-enrollment is blocked if the same face attempts:
 
-Starts attendance session with time threshold
+  * A different enrollment ID
+  * A different name
+  * A different course
 
-Live Attendance
+---
 
-Browser streams frames to backend
+## Attendance Rules
 
-Backend tracks face presence time
+* Face must remain continuously visible
+* Timer resets immediately if the face disappears
+* Attendance is marked only once per session
+* Absent students are derived automatically at session end
 
-Attendance marked only after threshold
+---
 
-Admin Stops Class
+## Judge Testing Procedure (Step-by-Step)
 
-Session finalizes attendance
+### Step 1: Access Admin Dashboard
 
-Present & absent students are stored
+* Log in using preconfigured admin credentials
+* Verify dashboard loads:
 
-Review
+  * Students
+  * Classes
+  * Schedules
 
-Attendance visible in dashboard with filters
+### Step 2: Enroll a Student
 
-Enrollment Rules (Strict)
+* Navigate to Student Enrollment
+* Enter:
 
-Enrollment ID must:
+  * Enrollment ID
+  * Name
+  * Course
+* Activate camera and submit
+* Expected outcome:
 
-Start with A100
+  * Successful enrollment confirmation
+  * Student appears in the Students list
+  * Duplicate or invalid enrollment is blocked
 
-Be 10 or 11 characters only
+### Step 3: Start Attendance Session
 
-One face = one identity forever
+* Navigate to Take Attendance
+* Select:
 
-Same face cannot enroll again with:
+  * Class
+  * Time threshold (e.g., 5 min)
+* Start attendance
+* Expected outcome:
 
-Different ID
+  * Camera activates
+  * Status indicates active face tracking
 
-Different name
+### Step 4: Validate Live Attendance
 
-Different course
+* Student remains in front of the camera
+* After threshold completion:
 
-Attendance Rules
+  * Attendance is marked
+* If the student moves away:
 
-Face must remain visible continuously
+  * Timer resets, preventing false positives
 
-Timer resets if face disappears
+### Step 5: Stop Attendance Session
 
-Attendance marked once per session
+* Stop the session from the admin panel
+* Expected outcome:
 
-Absent students are auto-derived at session end
+  * Session closes
+  * Attendance is finalized
 
-How Judges Test the System (Step-by-Step)
-Step 1: Open Admin Dashboard
+### Step 6: Review Attendance Records
 
-Login as admin (preconfigured for demo)
+* Open Attendance page
+* Apply filters:
 
-Verify dashboard loads:
+  * Class
+  * Date
+* Verify:
 
-Students
+  * Present students are listed
+  * Absent students are listed
+  * Records persist after page refresh
 
-Classes
+---
 
-Schedules
-
-Step 2: Enroll a Student
-
-Go to Student Enrollment
-
-Fill:
-
-Enrollment ID
-
-Name
-
-Course
-
-Start camera → Submit
-
-Expected:
-
-Success message
-
-Student visible in Students list
-
-Duplicate enrollment blocked
-
-Step 3: Start Attendance Session
-
-Go to Take Attendance
-
-Select:
-
-Class
-
-Time threshold (e.g. 5 seconds)
-
-Click Start Attendance
-
-Expected:
-
-Camera activates
-
-Status shows “Tracking face…”
-
-Step 4: Verify Live Attendance
-
-Student stays in front of camera
-
-After threshold:
-
-Status shows “Attendance marked”
-
-Move away:
-
-Timer resets (no false marking)
-
-Step 5: Stop Attendance
-
-Click Stop Attendance
-
-Expected:
-
-Session closes
-
-Attendance finalized
-
-Step 6: Review Attendance
-
-Go to Attendance Page
-
-Apply filters:
-
-Class
-
-Date
-
-Verify:
-
-Present students listed
-
-Absent students listed
-
-Data persists after refresh
+This system prioritizes integrity, auditability, and operational clarity—positioning it as a credible, deployment-ready solution rather than a conceptual prototype.
